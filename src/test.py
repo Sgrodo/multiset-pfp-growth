@@ -1,6 +1,3 @@
-from ast import operator
-import json
-import operator
 import os
 from pathlib import Path
 
@@ -8,7 +5,7 @@ import pyspark
 from pyspark.sql import SparkSession
 
 from alpha import extract_alpha_groups
-from fpgrowth import Pattern, PatternWithSupport
+from fpgrowth import PatternWithSupport
 from pfp import parallel_fp_growth
 
 SRC_DIR = Path(__file__).parent
@@ -35,7 +32,7 @@ spark = (
 )
 
 sc = spark.sparkContext
-sdf = spark.read.parquet(os.path.join(DATASETS_DIR, "online_retail_II.parquet"))
+sdf = spark.read.parquet(os.path.join(DATASETS_DIR, "online_retail.parquet"))
 
 sc.addPyFile(os.path.join(SRC_DIR, "alpha.py"))
 sc.addPyFile(os.path.join(SRC_DIR, "pfp.py"))
@@ -44,8 +41,8 @@ sc.addPyFile(os.path.join(SRC_DIR, "fpgrowth.py"))
 num_repartitions = sc.defaultParallelism
 
 transactions = (
-    sdf.select("Invoice", "StockCode", "Quantity")
-    .rdd.map(lambda row: (row["Invoice"], (row["StockCode"], int(row["Quantity"]))))
+    sdf.select("InvoiceNo", "StockCode", "Quantity")
+    .rdd.map(lambda row: (row["InvoiceNo"], (row["StockCode"], int(row["Quantity"]))))
     .groupByKey()
     .mapValues(list)
 )
@@ -61,8 +58,11 @@ adapted_transactions = transactions.map(
 ).repartition(num_repartitions)
 
 minimum_support = 5
-heap_size = 100000000
-patterns = parallel_fp_growth(adapted_transactions, minimum_support, heap_size)
+heap_size = 1000
+num_groups = 500
+patterns = parallel_fp_growth(
+    adapted_transactions, minimum_support, heap_size, num_groups=num_groups
+)
 # flat_patterns = set()
 # for group in patterns.values():
 #     flat_patterns.update(group)
@@ -86,9 +86,6 @@ quantified_patterns = flattened_patterns.map(
 )
 
 alpha_groups = extract_alpha_groups(quantified_patterns).persist()
-pattern_count = alpha_groups.aggregate(
-    0, lambda acc, group: acc + group["pattern_count"], operator.add
-)
+pattern_count = alpha_groups.count()
+
 print(f"Total patterns: {pattern_count}\tPruned patterns: {prev_count - pattern_count}")
-# with open(SRC_DIR / "alpha_groups.json", "w") as f:
-#     json.dump(alpha_groups, f, indent=4)

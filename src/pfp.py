@@ -1,9 +1,15 @@
-import heapq
 from typing import Any, TypeAlias
 
 import pyspark
 
-from fpgrowth import FPTree, PatternWithSupport, fp_growth, construct_conditional_tree
+from fpgrowth import (
+    FPTree,
+    PatternWithSupport,
+    add_to_heap,
+    merge_heaps,
+    top_k_fp_growth,
+    construct_conditional_tree,
+)
 
 Transaction: TypeAlias = list[Any]
 
@@ -50,21 +56,6 @@ def parallel_fp_growth(
     )
 
 
-def add_to_heap(
-    heap: list[PatternWithSupport], p: PatternWithSupport, K: int
-) -> list[PatternWithSupport]:
-    if len(heap) < K:
-        heapq.heappush(heap, p)
-    elif heap[0][0] < p[0]:
-        heapq.heappushpop(heap, p)
-
-    return heap
-
-
-def merge_heaps(heap1: list, heap2: list, K: int) -> list:
-    return list(heapq.merge(heap1, heap2, key=lambda x: x[0], reverse=True))[:K]
-
-
 def create_tree_combiner(t: Transaction) -> FPTree:
     tree = FPTree()
     tree.insert([(item, 1) for item in t])
@@ -102,21 +93,11 @@ def find_patterns(
     now_group = inverse_g_list.value[gid]
     patterns = []
     for i in now_group:
-        for support, pattern in top_k_fp_growth(tree, i, heap_size, min_support):
+        tree = construct_conditional_tree(tree, i, min_support)
+        for support, pattern in top_k_fp_growth(tree, min_support, (i,), heap_size):
             patterns.append((support, pattern))
 
     return patterns
-
-
-def top_k_fp_growth(
-    tree: FPTree, item: Any, K: int, min_support: int
-) -> list[PatternWithSupport]:
-    heap = []
-    conditionl_tree = construct_conditional_tree(tree, item, min_support)
-    for support, p in fp_growth(conditionl_tree, min_support, suffix=(item,)):
-        heap = add_to_heap(heap, (support, p), K)
-
-    return heap
 
 
 def generate_group_dependent_transactions(

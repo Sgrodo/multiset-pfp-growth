@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Iterator, TypeAlias
+import heapq
+from typing import Any, Iterable, TypeAlias
 
 Transaction: TypeAlias = list[tuple[Any, int]]
 Pattern: TypeAlias = tuple
@@ -17,6 +18,8 @@ class FPNode:
 class FPTree:
     def __init__(self):
         self.__root = FPNode(None)
+        # root should have count 0 (not 1 which is FPNode default)
+        self.__root.count = 0
         self.__header_table: dict[Any, list[FPNode]] = {}
         self.__node_count = 0
 
@@ -52,6 +55,9 @@ class FPTree:
             current_node = current_node.children[item]
 
     def has_single_path(self) -> bool:
+        # treat empty tree (no children) as NOT a single path
+        if not self.__root.children:
+            return False
         return count_leaf(self.__root) == 1
 
     def get_single_path(self) -> list[FPNode] | None:
@@ -91,13 +97,8 @@ def merge_trees(tree1: FPTree, tree2: FPTree) -> FPTree:
                 merge_nodes(child1, child2)
             else:
                 # 2. Branch does not exist: Create a new node in tree1
-                new_node = FPNode(item=item, count=child2.count, parent=node1)
-                node1.children[item] = new_node
-
-                # Update tree1's header table
-                if item not in tree1.header_table:
-                    tree1.header_table[item] = []
-                tree1.header_table[item].append(new_node)
+                # Use tree1._add_node to keep header_table and node_count consistent
+                new_node = tree1._add_node(item, node1, child2.count)
 
                 # Recursively build out the rest of the branch
                 merge_nodes(new_node, child2)
@@ -161,21 +162,31 @@ def extract_frequent_itemsets(
     return filtered_transactions
 
 
-def combinations(items: list[Any]) -> Iterable[tuple[Any, ...]]:
+def top_k_combinations(items: list[FPNode], K: int) -> Iterable[tuple]:
     from itertools import combinations as it_combinations
 
+    count = 0
     for r in range(1, len(items) + 1):
-        yield from it_combinations(items, r)
+        for comb in it_combinations(items, r):
+            if count >= K:
+                return
+            yield comb
+            count += 1
+
+
+# def combinations(items: list[Any]) -> Iterable[tuple[Any, ...]]:
+#     from itertools import combinations as it_combinations
+
+#     for r in range(1, len(items) + 1):
+#         yield from it_combinations(items, r)
 
 
 def conditional_pattern_base(
     tree: FPTree, item: Any, min_support: int
 ) -> list[Transaction]:
     transactions = []
-    for node in tree.header_table[item]:
-        # Fix 1: filter on node.count (the item's support), not path[-1].count
-        if node.count < min_support:
-            continue
+    # guard missing header table entries
+    for node in tree.header_table.get(item, []):
         path = prefix_of(node)
         if not path:
             continue
@@ -189,8 +200,9 @@ def conditional_pattern_base(
 
 def construct_conditional_tree(tree: FPTree, item: Any, min_support: int) -> FPTree:
     pattern_base = conditional_pattern_base(tree, item, min_support=min_support)
+    filtered = extract_frequent_itemsets(pattern_base, min_support)
     conditional_tree = FPTree()
-    for transaction in pattern_base:
+    for transaction in filtered:
         conditional_tree.insert(transaction)
     return conditional_tree
 
@@ -205,33 +217,63 @@ def fptree_from_transactions(
     return tree
 
 
-def fp_growth(
-    tree: FPTree, min_support: int, suffix: tuple = ()
-) -> Iterator[PatternWithSupport]:
+def top_k_fp_growth(
+    tree: FPTree, min_support: int, suffix: tuple = (), heap_size: int = 50
+) -> list[PatternWithSupport]:
+    # print(f"Processing suffix {suffix} with tree of {tree.node_count} nodes")
     # Fix: single-path case now checks support per combination and returns it.
     # Previously it emitted all combinations without support tracking.
+    heap = []
     if path_nodes := tree.get_single_path():
+        # print(
+        #     f"Single path detected with items {[n.item for n in path_nodes]} and counts {[n.count for n in path_nodes]}"
+        # )
         path_nodes = [n for n in path_nodes if n.item is not None]
-        patterns: set[PatternWithSupport] = set()
-        for comb in combinations(path_nodes):
-            support = min(n.count for n in comb)
+        for comb in top_k_combinations(path_nodes, heap_size):
+            support = comb[0].count
             if support >= min_support:
-                pattern = tuple(n.item for n in comb) + suffix
-                yield (support, pattern)
-        return
+                heap.append((support, tuple(n.item for n in comb) + suffix))
 
-    patterns = set()
+        return heap
+
+    patterns = []
+    # print(f"Processing header table with {len(tree.header_table)} items")
     for item, nodes in tree.header_table.items():
         item_support = sum(n.count for n in nodes)
         if item_support < min_support:
             continue
         pattern = (item,) + suffix
-        # Fix: now returns (pattern, support) pairs instead of bare patterns
-        patterns.add((item_support, pattern))
+        # yield (support, pattern) immediately
+        add_to_heap(patterns, (item_support, pattern), heap_size)
         conditional_tree = construct_conditional_tree(tree, item, min_support)
         if conditional_tree.node_count == 0:
             continue
-        yield from fp_growth(conditional_tree, min_support, pattern)
+
+        next_patterns = top_k_fp_growth(
+            conditional_tree, min_support, pattern, heap_size
+        )
+        patterns = merge_heaps(patterns, next_patterns, heap_size)
+
+    return patterns
+
+
+def add_to_heap(heap: list, item: Any, K: int) -> list:
+    if len(heap) < K:
+        heapq.heappush(heap, item)
+    elif heap[0][0] < item[0]:
+        heapq.heappushpop(heap, item)
+
+    return heap
+
+
+def merge_heaps(
+    h1: list[PatternWithSupport], h2: list[PatternWithSupport], K: int
+) -> list[PatternWithSupport]:
+    combined = h1 + h2
+    # keep only the K largest supports
+    top = heapq.nlargest(K, combined, key=lambda x: x[0])
+    heapq.heapify(top)  # maintain min-heap invariant for later use
+    return top
 
 
 def write_dot(root: FPNode, path: str) -> None:
@@ -246,7 +288,12 @@ def to_dot(root: FPNode) -> str:
     def assign_ids(node: FPNode) -> int:
         nid = node_id[0]
         node_id[0] += 1
-        label = "null" if node.item is None else f"{node.item}:{node.count}"
+        # escape quotes in labels
+        if node.item is None:
+            label = "null"
+        else:
+            raw = f"{node.item}:{node.count}"
+            label = raw.replace('"', '\\"')
         lines.append(f'    {nid} [label="{label}"];')
         for child in node.children.values():
             cid = assign_ids(child)
