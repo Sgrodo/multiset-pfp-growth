@@ -93,8 +93,10 @@ def find_patterns(
     now_group = inverse_g_list.value[gid]
     patterns = []
     for i in now_group:
-        tree = construct_conditional_tree(tree, i, min_support)
-        for support, pattern in top_k_fp_growth(tree, min_support, (i,), heap_size):
+        conditional_tree = construct_conditional_tree(tree, i, min_support)
+        for support, pattern in top_k_fp_growth(
+            conditional_tree, min_support, (i,), heap_size
+        ):
             patterns.append((support, pattern))
 
     return patterns
