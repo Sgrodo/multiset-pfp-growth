@@ -10,6 +10,8 @@ CanonicalPatternForm: TypeAlias = tuple[Pattern, int, Pattern]
 ShapeGroupedCanonicalPattern: TypeAlias = tuple[Pattern, tuple[int, Pattern, int]]
 SupportCanonicalForm: TypeAlias = tuple[int, Pattern, int]
 
+# shape = proporzione ridotta
+# alpha = fattore di scala
 
 def pattern_canonical_form(pattern: Pattern) -> CanonicalPatternForm | None:
 

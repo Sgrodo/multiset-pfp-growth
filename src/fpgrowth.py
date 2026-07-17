@@ -55,7 +55,8 @@ class FPTree:
             current_node = current_node.children[item]
 
     def has_single_path(self) -> bool:
-        # treat empty tree (no children) as NOT a single path
+        # treat empty tree (no children) as NOT a single path 
+        # TODO why not -> let's see?
         if not self.__root.children:
             return False
         return count_leaf(self.__root) == 1
@@ -152,11 +153,15 @@ def extract_frequent_itemsets(
         key=lambda x: f_list[x],
         reverse=True,
     )
+    # f_list_order è la lista degli item ordinati per numero di occorrenze (supporto)
     item_order = {item: index for index, item in enumerate(f_list_order)}
     filtered_transactions = []
     for trans in transactions:
         filtered_trans = [(item, count) for item, count in trans if item in item_order]
+        #se una transazione aveva almeno un item frequente, dopo il filtro rimane qualcosa; 
+        #se invece conteneva solo item rari, diventa vuota.
         new_trans = sorted(filtered_trans, key=lambda x: item_order[x[0]])
+        #se è vuota viene scartata qui:
         if new_trans:
             filtered_transactions.append(new_trans)
     return filtered_transactions
@@ -230,7 +235,8 @@ def top_k_fp_growth(
         # )
         path_nodes = [n for n in path_nodes if n.item is not None]
         for comb in top_k_combinations(path_nodes, heap_size):
-            support = comb[0].count
+            #support = comb[0].count
+            support = min(n.count for n in comb) #TODO CHECK if right
             if support >= min_support:
                 heap.append((support, tuple(n.item for n in comb) + suffix))
 
