@@ -55,7 +55,7 @@ class FPTree:
             current_node = current_node.children[item]
 
     def has_single_path(self) -> bool:
-        # treat empty tree (no children) as NOT a single path 
+        # treat empty tree (no children) as NOT a single path
         # TODO why not -> let's see?
         if not self.__root.children:
             return False
@@ -158,25 +158,39 @@ def extract_frequent_itemsets(
     filtered_transactions = []
     for trans in transactions:
         filtered_trans = [(item, count) for item, count in trans if item in item_order]
-        #se una transazione aveva almeno un item frequente, dopo il filtro rimane qualcosa; 
-        #se invece conteneva solo item rari, diventa vuota.
+        # se una transazione aveva almeno un item frequente, dopo il filtro rimane qualcosa;
+        # se invece conteneva solo item rari, diventa vuota.
         new_trans = sorted(filtered_trans, key=lambda x: item_order[x[0]])
-        #se è vuota viene scartata qui:
+        # se è vuota viene scartata qui:
         if new_trans:
             filtered_transactions.append(new_trans)
     return filtered_transactions
 
 
 def top_k_combinations(items: list[FPNode], K: int) -> Iterable[tuple]:
+    """
+    Assuming items is in the same order as in the FP-Tree single path,
+    starting from the root and going down to the leaf.
+    """
     from itertools import combinations as it_combinations
 
+    # count = 0
+    # for r in range(1, len(items) + 1):
+    #     for comb in it_combinations(items, r):
+    #         if count >= K:
+    #             return
+    #         yield comb
+    #         count += 1
     count = 0
-    for r in range(1, len(items) + 1):
-        for comb in it_combinations(items, r):
-            if count >= K:
-                return
-            yield comb
-            count += 1
+    for length in range(1, len(items) + 1):
+        newest = items[length - 1]
+        prev = items[: length - 1]
+        for r in range(0, length):
+            for comb in it_combinations(prev, r):
+                if count >= K:
+                    return
+                yield comb + (newest,)
+                count += 1
 
 
 # def combinations(items: list[Any]) -> Iterable[tuple[Any, ...]]:
@@ -235,8 +249,8 @@ def top_k_fp_growth(
         # )
         path_nodes = [n for n in path_nodes if n.item is not None]
         for comb in top_k_combinations(path_nodes, heap_size):
-            #support = comb[0].count
-            support = min(n.count for n in comb) #TODO CHECK if right
+            # support = comb[0].count
+            support = min(n.count for n in comb)  # TODO CHECK if right
             if support >= min_support:
                 heap.append((support, tuple(n.item for n in comb) + suffix))
 

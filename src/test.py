@@ -20,7 +20,10 @@ elif not os.access(event_log_dir, os.W_OK):
         f"Directory {event_log_dir} is not writable. Please check permissions."
     )
 
-NUM_CORES = "*"
+NUM_CORES = 10
+MINIMUM_SUPPORT = 10
+HEAP_SIZE = 1000
+NUM_GROUPS = 500
 
 spark = (
     SparkSession.builder.appName("test_pfp")
@@ -57,11 +60,8 @@ adapted_transactions = transactions.map(
     lambda t: [conversion_map.value[item] for item in t[1]]
 ).repartition(num_repartitions)
 
-minimum_support = 5
-heap_size = 1000
-num_groups = 500
 patterns = parallel_fp_growth(
-    adapted_transactions, minimum_support, heap_size, num_groups=num_groups
+    adapted_transactions, MINIMUM_SUPPORT, HEAP_SIZE, num_groups=NUM_GROUPS
 )
 # flat_patterns = set()
 # for group in patterns.values():
