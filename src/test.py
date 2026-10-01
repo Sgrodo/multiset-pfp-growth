@@ -89,3 +89,7 @@ alpha_groups = extract_alpha_groups(quantified_patterns).persist()
 pattern_count = alpha_groups.count()
 
 print(f"Total patterns: {pattern_count}\tPruned patterns: {prev_count - pattern_count}")
+with open("debug_string.txt", "w") as f:
+    f.write(repr(alpha_groups.toDebugString()))
+
+_ = input("Press Enter to exit...")

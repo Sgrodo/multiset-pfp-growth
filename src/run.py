@@ -21,13 +21,13 @@ NUM_CORES = 16
 # ============================================================
 # Adatta questi range in modo che il prodotto dia circa 8000 combinazioni.
 # Esempio: 20 support * 10 heap_size * 5 num_groups * 8 fractions = 8000
-SUPPORTS = [10, 40, 65, 95]  # 20 valori
+SUPPORTS = [i for i in range(10, 101, 5)]  # 20 valori
 # SUPPORTS = [10]  # 20 valori
 # HEAP_SIZES = [200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000]  # 10 valori
 HEAP_SIZES = [2**i for i in range(4, 11)]  # 10 valori
 NUM_GROUPS_LIST = [2**i for i in range(0, 9)]  # 5 valori
-# FRACTIONS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0]  # 8 valori
-FRACTIONS = [1.0]  # 8 valori
+FRACTIONS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0]  # 8 valori
+# FRACTIONS = [1.0]  # 8 valori
 
 
 def genera_parametri():
