@@ -1,0 +1,351 @@
+\documentclass[10pt]{article}
+
+\usepackage[a4paper, margin=2cm]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage[ruled,vlined]{algorithm2e}
+% Custom keywords for cleaner Spark representations
+\SetKw{KwParallel}{parallel}
+\SetKw{KwLaunch}{launch}
+
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning}
+
+\title{
+    \includegraphics[width=2cm]{logo.png}\\[0.3cm]
+    \textbf{Mining Proportional Patterns in Online Retail Data}
+}
+
+\author{
+    Your Name \\ 
+    \textit{VRXXXXXX}
+    \and
+    Second Name \\ 
+    \textit{VRXXXXXX}
+}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+Frequent Itemset Mining (FIM) is a fundamental technique in market basket analysis. However, traditional FIM algorithms primarily focus on the binary presence of items within a transaction, completely ignoring purchased quantities. In online retail, understanding the exact proportions of items bought together (e.g., buying two units of item A for every four units of item B) provides highly valuable insights for bundle recommendations, targeted upselling, and precise demand estimation. This work proposes a distributed approach to extract not only frequent itemsets but also their underlying proportional quantitative relationships from massive retail datasets.
+
+\section{Solution Overview}
+To extract quantitative patterns, we adapt existing FIM frameworks through a custom data transformation process. Because standard FIM algorithms cannot directly process quantitative values, we first map every unique (\text{item}, \text{quantity}) tuple to a distinct item identifier. We then transform the original transaction database by replacing the raw tuples with these new identifiers. 
+
+Given the massive scale of modern online retail data, processing cannot be efficiently handled by a single machine. Consequently, we implement this solution across a distributed computing cluster using the Parallel FP-Growth (PFP) algorithm proposed by Li et al. \cite{Li2008PFP}. PFP allows for efficient parallel execution across distributed nodes while eliminating the massive computational overhead of candidate generation. Once PFP identifies the frequent patterns of identifiers, an inverse transformation is applied to reconstruct the original item-quantity relationships. Finally, we analyze these patterns to identify proportional relationships by extracting their canonical base pattern via a greatest common divisor calculation. This allows us to represent various frequent patterns as scalar multiples of a single base structure. This approach ultimately constructs a relationship graph, where nodes represent the extracted patterns and edges denote the proportional scaling relationships between them.
+
+\section{Problem Description}
+To formally analyze quantitative co-occurrences in retail data, we define the mathematical components of our pipeline below.
+
+\subsection{Transactions and Datasets}
+Let $I = \{i_1, i_2, \dots, i_m\}$ be a universe of distinct items. A \textbf{quantitative itemset} is defined as a set of ordered pairs representing items and their purchased quantities:
+\begin{equation}
+X = \{ (i_j, q_j) \mid i_j \in I, q_j \in \mathbb{Z}^+ \}
+\end{equation}
+
+A \textbf{transaction database} $T = \{T_1, T_2, \dots, T_n\}$ is a collection of transactions, where each transaction $T_i$ contains tuples $(\text{item}_j, \text{quantity}_j)$ with $1 \le j \le |T_i|$.
+
+\subsection{Support and Frequent Patterns}
+The \textbf{support} of a quantitative itemset $X$, denoted as $\text{sup}(X)$, is the number of transactions in $T$ that contain $X$ as a subset:
+\begin{equation}
+\text{sup}(X) = |\{ T_i \in T \mid X \subseteq T_i \}|
+\end{equation}
+
+Given a user-defined minimum support threshold $\xi$, a quantitative itemset $X$ is considered a \textbf{frequent pattern} if and only if its number of occurrences satisfies:
+\begin{equation}
+\text{sup}(X) \ge \xi
+\end{equation}
+We denote the set of all extracted frequent patterns as $\mathcal{P}$.
+
+\subsection{Canonical Base Units and Proportional Shapes}
+For any frequent pattern $P \in \mathcal{P}$ containing items with quantities $\{q_1, q_2, \dots, q_k\}$, we define its \textbf{canonical base unit} $g$ as the greatest common divisor of those quantities:
+\begin{equation}
+g = \gcd(q_1, q_2, \dots, q_k)
+\end{equation}
+
+The pattern $P$ can then be uniquely decomposed into two distinct properties:
+\begin{itemize}
+    \item \textbf{Shape ($S$):} The core proportional ratio of the items, defined by dividing each quantity by the base unit:
+    \begin{equation}
+    S = \left\{ \left(i_j, \frac{q_j}{g}\right) \;\middle|\; (i_j, q_j) \in P \right\}
+    \end{equation}
+    \item \textbf{Scaling Factor ($\alpha$):} A scalar value representing the magnitude of the pattern, where $\alpha = g$.
+\end{itemize}
+Under this mathematical definition, any frequent pattern can be expressed as a scalar multiple of its canonical shape: $P = \alpha \cdot S$.
+
+\subsection{Proportional Relationship Graph}
+Let $\mathcal{P}_S \subseteq \mathcal{P}$ be a group of frequent patterns that all share the exact same canonical shape $S$, but possess different scaling factors $\{\alpha_1, \alpha_2, \dots, \alpha_m\}$. 
+
+We construct a directed \textbf{Proportional Relationship Graph} $G = (V, E)$ for this group, where:
+\begin{itemize}
+    \item The vertices $V = \mathcal{P}_S$ represent the individual frequent patterns.
+    \item A directed edge $e = (P_i, P_j) \in E$ exists from pattern $P_i$ to $P_j$ if there exists an integer multiplier $k \in \mathbb{Z}^+$ such that:
+    \begin{equation}
+    \alpha_j = k \cdot \alpha_i
+    \end{equation}
+\end{itemize}
+To ensure the graph remains easily interpretable and clear of redundant links, a transitive reduction is applied to remove any edge $(P_i, P_j)$ if a alternative, longer path from $P_i$ to $P_j$ already exists through an intermediate node.
+
+
+\section{Pipeline Architecture Visualization}
+To provide a comprehensive blueprint of the proposed system, this section visually encapsulates the execution flow implemented in our distributed architecture. The pipeline operates sequentially through two distinct processing domains: the distributed storage/mining space managed by Apache Spark, and the localized topological reduction domain where graph edges are generated.
+
+\subsection{Dataflow Block Diagram}
+The global sequence of operations, from raw data ingestion to the final export of optimized relationship graph trajectories, is summarized in the architectural pipeline diagram below (Figure \ref{fig:dataflow_pipeline}).
+
+\begin{figure}[htbp]
+\centering
+\begin{verbatim}
+PIPELINE VISUALIZATION IMAGES
+\end{verbatim}
+\caption{Architectural dataflow diagram capturing the transition from transactional indexing in Spark to localized canonical graph reduction.}
+\label{fig:dataflow_pipeline}
+\end{figure}
+
+\subsection{Detailed Execution Step Tracing}
+The functional logic written in the computational notebook maps directly to four synchronized milestones:
+
+\begin{enumerate}
+    \item \textbf{Bijective Token Indexing:} The raw execution context initializes by converting complex \texttt{(StockCode, Quantity)} transaction pairs into a single unique continuous identifier string using a distributed \texttt{zipWithIndex} operation. This reduces the memory footprint and standardizes data format compatibility for downstream tree structures.
+    \item \textbf{Parallel FP-Growth Execution:} The transformed transactional database is fed into the distributed PFP-Growth cluster engine. This builds local prefix trees across worker partitions, tracks support thresholds, and yields frequent token sets.
+    \item \textbf{Inverse Mapping and GCD Decomposition:} Captured frequent itemsets are decoded back to real-world product quantities using the reverse index map ($M^{-1}$). The mathematical engine then executes a localized parallel Greatest Common Divisor calculation to detach the core proportion (Shape $S$) from its scalar magnitude (Scale $\alpha$).
+    \item \textbf{Transitive Modulo Pruning:} Spark's \texttt{groupByKey} operation routes matching shapes to isolated worker processes. Finally, our custom edge generation algorithm applies three nested loops to efficiently verify pairwise integer divisibility and prune redundant shortcut pathways, building the final optimized Directed Acyclic Graph structure.
+\end{enumerate}
+
+\section{Implementation}
+The proposed computational pipeline is implemented in Apache Spark using distributed transformations to scale out over a machines cluster. 
+
+\subsection{Phase 1: Dataset Transformation}
+Because standard Frequent Itemset Mining algorithms process item tokens without embedded quantities, we apply an initial transformation. Every distinct $(\text{item}, \text{quantity})$ tuple discovered across the database is mapped uniquely to a synthetic identifier $\text{ID} \in \mathbb{Z}^+$. Algorithm \ref{alg:transform} presents the distributed execution logic mapping raw market baskets to continuous ID sequences.
+
+\begin{algorithm}[H]
+\DontPrintSemicolon
+\KwIn{Transaction Database $T = \{T_1, \dots, T_n\}$}
+\KwOut{Transformed Database $T_{ID}$, Map dictionary $M$}
+
+% Step 1: Unique Tuple Generation
+$U \gets \emptyset$\;
+\ForEach{Transaction $T_i \in T$ \KwParallel}{
+    Extract distinct tuples $(i, q) \in T_i$\;
+    Emit $(i, q)$ to globally unique collector\;
+}
+$M \gets \text{Assign unique sequential IDs to each tuple in } U$\;
+
+% Step 2: Database Transformation
+$T_{ID} \gets \emptyset$\;
+\ForEach{Transaction $T_i \in T$ \KwParallel}{
+    $T'_{i} \gets \emptyset$\;
+    \ForEach{$(i, q) \in T_i$}{
+        $\text{id} \gets M(i, q)$\;
+        $T'_{i} \gets T'_{i} \cup \{\text{id}\}$\;
+    }
+    Append $T'_{i}$ to $T_{ID}$\;
+}
+\Return{$T_{ID}, M$}\;
+\caption{Distributed Dataset Transformation}
+\label{alg:transform}
+\end{algorithm}
+
+\subsection{Phase 2: Pattern Extraction (PFP Recall)}
+With the database transformed into standard transaction arrays ($T_{ID}$), we execute Parallel FP-Growth (PFP) \cite{Li2008PFP}. The map tasks partition the transaction space and independently generate local FP-Trees, which are aggregated globally without candidate generation overhead. 
+
+Algorithm \ref{alg:pfp} outlines the recall structure triggering the parallel pattern extraction engine and applying the inverse map $M^{-1}$ to restore the structural variables defined in our problem model.
+
+\begin{algorithm}[H]
+\DontPrintSemicolon
+\KwIn{Transformed Database $T_{ID}$, Support threshold $\xi$, Map $M$}
+\KwOut{Frequent Quantitative Patterns $\mathcal{P}$}
+
+$\mathcal{P}_{ID} \gets \KwLaunch \text{ PFP}(T_{ID}, \xi)$ \tcp*{Distributed Mining}
+$\mathcal{P} \gets \emptyset$\;
+
+\ForEach{Frequent ID Set $P_{id} \in \mathcal{P}_{ID}$ \KwParallel}{
+    $P \gets \emptyset$\;
+    \ForEach{$\text{id} \in P_{id}$}{
+        $(i, q) \gets M^{-1}(\text{id})$\;
+        $P \gets P \cup \{(i, q)\}$\;
+    }
+    $\mathcal{P} \gets \mathcal{P} \cup \{P\}$\;
+}
+\Return{$\mathcal{P}$}\;
+\caption{Parallel FP-Growth and Inverse Mapping}
+\label{alg:pfp}
+\end{algorithm}
+
+\subsection{Phase 3: Proportional Graph Construction}
+The final phase handles pattern structural grouping and edge generation. We extract the structural shape $S$ and scale $\alpha$ for each itemset using a calculated greatest common divisor. We cluster matching structural profiles globally using Spark's \texttt{groupByKey} operator before isolating direct scaling transitions.
+
+\begin{algorithm}[htbp]
+\DontPrintSemicolon
+\LinesNumbered
+\caption{Transitive Proportional Edge Generation}
+\label{alg:transitive_edges}
+
+\KwIn{Sorted unique scaling factors $A = [\alpha_1, \alpha_2, \dots, \alpha_m]$ such that $\alpha_i < \alpha_j$ for all $i < j$}
+\KwOut{Optimized Directed Edge Set $E$ containing tuples $(u, v, \text{multiplier})$}
+\BlankLine
+
+$E \gets \emptyset$\;
+
+\For{$i \gets 1$ \textbf{to} $|A|$}{
+    $u \gets A[i]$\;
+    \For{$j \gets i+1$ \textbf{to} $|A|$}{
+        $v \gets A[j]$\;
+        
+        \If{$v \mod u \neq 0$}{
+            \textbf{continue}\;
+        }
+        
+        $\text{redundant} \gets \text{False}$\;
+        
+        \For{$k \gets i+1$ \textbf{to} $j-1$}{
+            $w \gets A[k]$\;
+            \If{$w \mod u == 0$ \textbf{and} $v \mod w == 0$}{
+                $\text{redundant} \gets \text{True}$\;
+                \textbf{break}\;
+            }
+        }
+        
+        \If{\textbf{not} \text{redundant}}{
+            $m \gets v \div u$\;
+            $E \gets E \cup \{(u, v, m)\}$\;
+        }
+    }
+}
+\Return $E$\;
+\end{algorithm}
+
+
+\section{Complex Illustrative Application}
+To rigorously validate the pipeline's capability to process non-linear scaling topologies, maintain disconnected structures, and execute transitive reductions on multi-parent nodes, we present a complex market basket scenario.
+
+\subsection{Extracted Frequent Quantitative Patterns}
+Suppose our distributed Parallel FP-Growth mining engine extracts a set of frequent quantitative patterns $\mathcal{P} = \{P_1, P_2, \dots, P_7\}$ representing two entirely disconnected consumer behaviors: a multi-item Beverage Party Pack ($G_{S_1}$) and a breakfast Pancake Mix bundle ($G_{S_2}$).
+
+\begin{align*}
+\text{\textbf{Graph } } \mathbf{G_{S_1}} \text{\textbf{ (Beverage Ratio 1:2:3):}} \quad 
+P_1 &= \{(\text{cola}, 1), (\text{juice}, 2), (\text{water}, 3)\} \\
+P_2 &= \{(\text{cola}, 2), (\text{juice}, 4), (\text{water}, 6)\} \\
+P_3 &= \{(\text{cola}, 3), (\text{juice}, 6), (\text{water}, 9)\} \\
+P_4 &= \{(\text{cola}, 6), (\text{juice}, 12), (\text{water}, 18)\} \\[0.2cm]
+\text{\textbf{Graph } } \mathbf{G_{S_2}} \text{\textbf{ (Pancake Ratio 2:1):}} \quad 
+P_5 &= \{(\text{flour}, 2), (\text{milk}, 1)\} \\
+P_6 &= \{(\text{flour}, 4), (\text{milk}, 2)\} \\
+P_7 &= \{(\text{flour}, 8), (\text{milk}, 4)\}
+\end{align*}
+
+\subsection{Decomposition and Distributed Partitioning}
+The Spark pipeline computes the greatest common divisor ($g$) for each pattern independently. As detailed in Table \ref{tab:complex_decomp}, the patterns are clustered using \texttt{groupByKey} into two distinct graph partitions based on their irreducible canonical shapes ($S_1$ and $S_2$).
+
+\begin{table}[htbp]
+\centering
+\caption{Global Complex Decomposition and Scale Extraction}
+\label{tab:complex_decomp}
+\vspace{0.2cm}
+\begin{tabular}{llccc}
+\hline
+\textbf{Graph Partition} & \textbf{Pattern} & $\mathbf{g = \gcd(\dots)}$ & \textbf{Canonical Shape }($S$) & $\boldsymbol{\alpha}$ \\ \hline
+$G_{S_1}$ (Beverage)  & $P_1$ & $\gcd(1, 2, 3) = 1$ & $\{(\text{cola}, 1), (\text{juice}, 2), (\text{water}, 3)\}$ & 1 \\
+                      & $P_2$ & $\gcd(2, 4, 6) = 2$ & $\{(\text{cola}, 1), (\text{juice}, 2), (\text{water}, 3)\}$ & 2 \\
+                      & $P_3$ & $\gcd(3, 6, 9) = 3$ & $\{(\text{cola}, 1), (\text{juice}, 2), (\text{water}, 3)\}$ & 3 \\
+                      & $P_4$ & $\gcd(6, 12, 18) = 6$ & $\{(\text{cola}, 1), (\text{juice}, 2), (\text{water}, 3)\}$ & 6 \\ \hline
+$G_{S_2}$ (Pancake)   & $P_5$ & $\gcd(2, 1) = 1$  & $\{(\text{flour}, 2), (\text{milk}, 1)\}$ & 1 \\
+                      & $P_6$ & $\gcd(4, 2) = 2$  & $\{(\text{flour}, 2), (\text{milk}, 1)\}$ & 2 \\
+                      & $P_7$ & $\gcd(8, 4) = 4$  & $\{(\text{flour}, 2), (\text{milk}, 1)\}$ & 4 \\ \hline
+\end{tabular}
+\end{table}
+
+\subsection{Transitive Reduction of Multi-Parent Topologies}
+During edge generation, the partitioning isolates $G_{S_1}$ and $G_{S_2}$. While $G_{S_2}$ forms a simple linear chain ($P_5 \rightarrow P_6 \rightarrow P_7$), the Beverage cluster $G_{S_1}$ presents a highly complex divisibility structure for the scale set $V_{S_1} = \{1, 2, 3, 6\}$:
+\begin{itemize}
+    \item $P_4$ ($\alpha=6$) is perfectly divisible by all previous nodes: $P_1$ ($\alpha=1$), $P_2$ ($\alpha=2$), and $P_3$ ($\alpha=3$).
+    \item Consequently, the raw, unreduced edge set generates redundant direct paths:
+    \begin{equation}
+    E_{\text{raw}} = \{(P_1, P_2), (P_1, P_3), (P_1, P_4), (P_2, P_4), (P_3, P_4)\}
+    \end{equation}
+\end{itemize}
+
+Our transitive reduction algorithm systematically processes these relations. The shortcut edge $(P_1, P_4)$ is pruned because $P_4$ is reachable via $P_2$ or $P_3$. Crucially, the edges $(P_2, P_4)$ and $(P_3, P_4)$ must **both be preserved**, because neither $2 \pmod 3 \neq 0$ nor $3 \pmod 2 \neq 0$. This confirms that $P_4$ maintains a true multi-parent convergence, establishing that the underlying structure is a DAG rather than a standard tree.
+
+\subsection{Graph visualization}
+Figure \ref{fig:complex_forest} visualizes the complete disconnected forest generated by the pipeline, contrasting the network states before and after the automated transitive reduction phase.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    node distance=1.2cm and 1.8cm,
+    vertex/.style={draw, rectangle, rounded corners, fill=blue!5, minimum width=1.8cm, minimum height=0.7cm, align=center, font=\small},
+    arrow/.style={-{Stealth[scale=1.1]}, thick, shorten >=2pt, shorten <=2pt},
+    redundant/.style={-{Stealth[scale=1.1]}, dashed, red, thick, shorten >=2pt, shorten <=2pt}
+]
+
+    % ==================== RAW FOREST (LEFT SIDE) ====================
+    \node at (2, 5.2) {\textbf{(a) Raw Extracted DAGs (Before Pruning)}};
+    
+    % G_S1 Raw
+    \node[vertex] (r_p1) at (0, 3.5) {$P_1$ \\ \footnotesize ($\alpha = 1$)};
+    \node[vertex] (r_p2) at (2.5, 4.3) {$P_2$ \\ \footnotesize ($\alpha = 2$)};
+    \node[vertex] (r_p3) at (2.5, 2.7) {$P_3$ \\ \footnotesize ($\alpha = 3$)};
+    \node[vertex] (r_p4) at (5, 3.5) {$P_4$ \\ \footnotesize ($\alpha = 6$)};
+    
+    \draw[arrow] (r_p1) -- (r_p2);
+    \draw[arrow] (r_p1) -- (r_p3);
+    \draw[redundant] (r_p1) -- (r_p4); % Shortcut 1 -> 6
+    \draw[arrow] (r_p2) -- (r_p4);
+    \draw[arrow] (r_p3) -- (r_p4);
+    
+    % G_S2 Raw
+    \node[vertex] (r_p5) at (0, 1) {$P_5$ \\ \footnotesize ($\alpha = 1$)};
+    \node[vertex] (r_p6) at (2.5, 1) {$P_6$ \\ \footnotesize ($\alpha = 2$)};
+    \node[vertex] (r_p7) at (5, 1) {$P_7$ \\ \footnotesize ($\alpha = 4$)};
+    
+    \draw[arrow] (r_p5) -- (r_p6);
+    \draw[arrow] (r_p6) -- (r_p7);
+    \draw[redundant] (r_p5) to[bend left=25] (r_p7); % Shortcut 1 -> 4
+
+    % ==================== REDUCED FOREST (RIGHT SIDE) ====================
+    \node at (10, 5.2) {\textbf{(b) Optimized Output (After Reduction)}};
+    
+    % G_S1 Reduced
+    \node[vertex] (m_p1) at (8, 3.5) {$P_1$ \\ \footnotesize ($\alpha = 1$)};
+    \node[vertex] (m_p2) at (10.5, 4.3) {$P_2$ \\ \footnotesize ($\alpha = 2$)};
+    \node[vertex] (m_p3) at (10.5, 2.7) {$P_3$ \\ \footnotesize ($\alpha = 3$)};
+    \node[vertex] (m_p4) at (13, 3.5) {$P_4$ \\ \footnotesize ($\alpha = 6$)};
+    
+    \draw[arrow] (m_p1) -- (m_p2);
+    \draw[arrow] (m_p1) -- (m_p3);
+    \draw[arrow] (m_p2) -- (m_p4);
+    \draw[arrow] (m_p3) -- (m_p4);
+    
+    % G_S2 Reduced
+    \node[vertex] (m_p5) at (8, 1) {$P_5$ \\ \footnotesize ($\alpha = 1$)};
+    \node[vertex] (m_p6) at (10.5, 1) {$P_6$ \\ \footnotesize ($\alpha = 2$)};
+    \node[vertex] (m_p7) at (13, 1) {$P_7$ \\ \footnotesize ($\alpha = 4$)};
+    
+    \draw[arrow] (m_p5) -- (m_p6);
+    \draw[arrow] (m_p6) -- (m_p7);
+
+\end{tikzpicture}
+\caption{Visual architecture of the complex quantitative forest. Red dashed lines represent redundant transitive shortcuts successfully pruned by Phase 3 of the pipeline. The final graph $G_{S_1}$ clearly demonstrates convergence from multiple independent parental paths.}
+\label{fig:complex_forest}
+\end{figure}
+\section{Limitations}
+\begin{itemize}
+    \item \textbf{Sensitivity to Quantity Noise:} Minor adjustments or accidental individual unit variations can break the strict integer GCD step, hiding potential ratios.
+    \item \textbf{Strict Proportionality Constraints:} The model only accounts for exact linear scaling and misses non-linear purchasing trends.
+    \item \textbf{Absence of Temporal Analysis:} Seasonal variations and time-based purchase shifts are currently not captured in the pipeline.
+\end{itemize}
+
+\section{Conclusion}
+This work explicitly extends the capabilities of traditional frequent itemset mining by introducing distributed proportional analysis over item quantities. By leveraging parallel computing architectures and integer factorization metrics, our approach uncovers deeper consumer behavior patterns to drive more effective business intelligence systems.
+
+\begin{thebibliography}{1}
+\bibitem{Li2008PFP}
+H.~Li, Y.~Wang, D.~Zhang, M.~Zhang, and E.~Y. Chang, ``PFP: Parallel FP-Growth for Query Recommendation,'' in \emph{Proceedings of the 2008 ACM Conference on Recommender Systems} (RecSys '08), 2008, pp. 107--114.
+\end{thebibliography}
+
+\end{document}
