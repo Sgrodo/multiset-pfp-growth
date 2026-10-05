@@ -10,6 +10,7 @@ from time import perf_counter
 import psutil
 import pyspark as ps
 from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
 
 from alpha import extract_alpha_groups
 from fpgrowth import PatternWithSupport
@@ -156,15 +157,39 @@ if __name__ == "__main__":
     sc.addPyFile(os.path.join(SRC_DIR, "pfp.py"))
     sc.addPyFile(os.path.join(SRC_DIR, "fpgrowth.py"))
 
+    # il supporto deve contare le transazioni che contengono un token, qui abbiamo dupicati
+    # transactions = (
+    #     sdf.select("BASKET_ID", "PRODUCT_ID", "QUANTITY")
+    #     .rdd.map(
+    #         lambda row: (row["BASKET_ID"], (row["PRODUCT_ID"], int(row["QUANTITY"])))
+    #     )
+    #     .groupByKey()
+    #     .mapValues(list)
+    #     .persist(ps.StorageLevel.MEMORY_AND_DISK)
+    # )
+
+    #Versione corretta:
+    # prima accadeva T1 -> (A,2), (A,2), (D,3) e diventava T1 -> B, B, C e contavamo B 2 volte (sbagliato)
+    # ora T1 -> (A,2), (A,2), (D,3) diventa T1 -> (A,4),(D,3) e diventa T1 -> E,C
+
+    aggregated = (
+    sdf.filter(F.col("QUANTITY") > 0)
+    .groupBy("BASKET_ID", "PRODUCT_ID")
+    .agg(F.sum("QUANTITY").alias("QUANTITY"))
+)
+
     transactions = (
-        sdf.select("BASKET_ID", "PRODUCT_ID", "QUANTITY")
-        .rdd.map(
-            lambda row: (row["BASKET_ID"], (row["PRODUCT_ID"], int(row["QUANTITY"])))
+    aggregated.select("BASKET_ID", "PRODUCT_ID", "QUANTITY")
+    .rdd.map(
+        lambda row: (
+            row["BASKET_ID"],
+            (row["PRODUCT_ID"], int(row["QUANTITY"]))
         )
-        .groupByKey()
-        .mapValues(list)
-        .persist(ps.StorageLevel.MEMORY_AND_DISK)
     )
+    .groupByKey()
+    .mapValues(list)
+    .persist(ps.StorageLevel.MEMORY_AND_DISK)
+)
 
     total = transactions.count()
 
@@ -173,7 +198,7 @@ if __name__ == "__main__":
     def warm_up():
         for it in range(10):
             data_len = random.randint(1000, total)
-            sample = transactions.sample(False, data_len).persist(
+            sample = transactions.sample(False, 0.05, seed=42).persist(
                 ps.StorageLevel.MEMORY_AND_DISK
             )
             patterns = apply_pfp(

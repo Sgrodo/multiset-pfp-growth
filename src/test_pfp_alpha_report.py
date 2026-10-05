@@ -225,17 +225,24 @@ def main() -> None:
             )
         else:
             description_map = {}
+
         transactions = (
-            rows.map(
+            rows.filter(lambda row: int(row["Quantity"]) > 0)
+            .map(
                 lambda row: (
-                    row["InvoiceNo"],
-                    (row["StockCode"], int(row["Quantity"])),
+                    (row["InvoiceNo"], row["StockCode"]),
+                    int(row["Quantity"]),
+                )
+            )
+            .reduceByKey(lambda q1, q2: q1 + q2)
+            .map(
+                lambda entry: (
+                    entry[0][0],
+                    (entry[0][1], entry[1]),
                 )
             )
             .groupByKey()
-            # FP-Growth mines itemsets: an identical item may occur at most once
-            # in a transaction. Preserve the first occurrence for stable output.
-            .mapValues(lambda items: list(dict.fromkeys(items)))
+            .mapValues(list)
             .persist()
         )
         transaction_count = transactions.count()
@@ -448,7 +455,7 @@ def main() -> None:
             f"- Heap size: {args.heap_size:,}",
             f"- PFP groups: {args.num_groups:,}",
             f"- Local Spark cores: {args.num_cores}",
-            "- Returns/negative quantities: retained",
+            "- Returns/negative quantities and zero quantities: excluded",
             f"- Product descriptions: {'available' if has_descriptions else 'not available'}",
             "",
             "## Dataset summary",
