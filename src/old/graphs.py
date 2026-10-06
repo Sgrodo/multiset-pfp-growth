@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-INPUT_PATH = Path(__file__).parent.parent / "input.csv"
+INPUT_PATH = Path(__file__).parent.parent / "risultati_pfp_original.csv"
 OUT_DIR = Path(__file__).parent.parent / "out"
 os.makedirs(OUT_DIR, exist_ok=True)
 
@@ -64,58 +64,59 @@ def slice_default(data: pd.DataFrame, exclude=()) -> pd.Series:
 # ----------------------------------------------------------------------
 # 1. Effetto di FRACTION / SAMPLE_SIZE sul tempo di mining
 # ----------------------------------------------------------------------
-# fig, ax1 = plt.subplots(figsize=(7, 5))
+fig, ax1 = plt.subplots(figsize=(7, 5))
 
-# sub = slice_default(df, exclude=("fraction",)).sort_values("fraction")
+sub = slice_default(df, exclude=("fraction",)).sort_values("fraction")
 
-# ax1.plot(
-#     sub.sample_size,
-#     sub.pfp_time_sec,
-#     marker="o",
-#     color="tab:blue",
-#     label="tempo mining (s)",
-# )
-# ax1.set_xlabel("Sample size (n. record)")
-# ax1.set_ylabel("Tempo mining (s)", color="tab:blue")
-# ax1.tick_params(axis="y", labelcolor="tab:blue")
-
-
-# # Linear line
-# # ax2 = ax1.twinx()
-# # LINEAR_COSTANT = (sub.pfp_time_sec / sub.sample_size).mean()
-# sample_size = sub.sample_size.astype(float)
-# pfp_time = sub.pfp_time_sec.astype(float)
+ax1.plot(
+    sub.sample_size,
+    sub.pfp_time_sec,
+    marker="o",
+    color="tab:blue",
+    label="tempo mining (s)",
+)
+ax1.set_xlabel("Sample size (n. record)")
+ax1.set_ylabel("Tempo mining (s)", color="tab:blue")
+ax1.tick_params(axis="y", labelcolor="tab:blue")
 
 
-# LINEAR_COSTANT = np.exp(np.mean(np.log(pfp_time) - 1 * np.log(sample_size)))
-# ax1.plot(
-#     sub.sample_size,
-#     sub.sample_size * LINEAR_COSTANT,
-#     marker="s",
-#     color="tab:orange",
-#     label="sample size",
-# )
-# # ax2.set_ylabel("Sample size (n. record)", color="tab:orange")
-# # ax2.tick_params(axis="y", labelcolor="tab:orange")
+# Linear line
+# ax2 = ax1.twinx()
+# LINEAR_COSTANT = (sub.pfp_time_sec / sub.sample_size).mean()
+sample_size = sub.sample_size.astype(float)
+pfp_time = sub.pfp_time_sec.astype(float)
 
-# # Quadratic line
-# # ax3 = ax1.twinx()
-# # QUADRATIC_COSTANT = (sub.pfp_time_sec / sub.sample_size**2).mean()
-# QUADRATIC_COSTANT = np.exp(np.mean(np.log(pfp_time) - 2 * np.log(sample_size)))
-# ax1.plot(
-#     sub.sample_size,
-#     sub.sample_size**2 * QUADRATIC_COSTANT,
-#     marker="^",
-#     color="tab:green",
-#     label="sample size^2",
-# )
 
-# ax1.set_title(
-#     f"Effetto di fraction sul tempo (support={SUP_DEFAULT}, heap={HEAP_DEFAULT}, groups={GROUPS_DEFAULT})"
-# )
-# fig.tight_layout()
-# fig.savefig(f"{OUT_DIR}/1_effetto_fraction.png", dpi=150)
-# plt.close(fig)
+LINEAR_COSTANT = np.exp(np.mean(np.log(pfp_time) - 1 * np.log(sample_size)))
+# LINEAR_COSTANT = 1.017e-4
+ax1.plot(
+    sub.sample_size,
+    sub.sample_size * LINEAR_COSTANT,
+    marker="s",
+    color="tab:orange",
+    label="O(n)",
+)
+# ax2.set_ylabel("Sample size (n. record)", color="tab:orange")
+# ax2.tick_params(axis="y", labelcolor="tab:orange")
+
+# Quadratic line
+# ax3 = ax1.twinx()
+# QUADRATIC_COSTANT = (sub.pfp_time_sec / sub.sample_size**2).mean()
+QUADRATIC_COSTANT = np.exp(np.mean(np.log(pfp_time) - 2 * np.log(sample_size)))
+# QUADRATIC_COSTANT = 1.79e-5
+ax1.plot(
+    sub.sample_size,
+    sub.sample_size**2 * QUADRATIC_COSTANT,
+    marker="^",
+    color="tab:green",
+    label="O(n^2)",
+)
+
+ax1.set_title(f"Effetto di fraction sul tempo (support={10}, heap={1024}, groups={8})")
+ax1.legend(loc="upper left")
+fig.tight_layout()
+fig.savefig(f"{OUT_DIR}/1_effetto_fraction.png", dpi=150)
+plt.close(fig)
 
 
 # # ----------------------------------------------------------------------
@@ -192,7 +193,8 @@ def slice_default(data: pd.DataFrame, exclude=()) -> pd.Series:
 #     marker="^",
 #     label="% rimossa",
 # )
-# ax2.set_ylabel("% pattern rimossi dal pruning")
+# ax2.set_ylabel("% pattern rimossi dal pruning", color="gray")
+# ax2.tick_params(axis="y", labelcolor="gray")
 
 # ax1.set_title(
 #     f"Efficacia del pruning al variare di support (heap={HEAP_DEFAULT}, groups={GROUPS_DEFAULT}, fraction={FRACTION_DEFAULT})"
@@ -296,76 +298,76 @@ def slice_default(data: pd.DataFrame, exclude=()) -> pd.Series:
 # ----------------------------------------------------------------------
 # 7. Heatmap tempo totale: NUM_GROUPS x HEAP_SIZE (come nello script precedente)
 # ----------------------------------------------------------------------
-supports = (10, 40, 65, 95)
-data = df[df.fraction == FRACTION_DEFAULT]
+# supports = (10, 40, 65, 95)
+# data = df[df.fraction == FRACTION_DEFAULT]
 
-# griglia: 4 righe x 5 colonne per 20 pannelli
-ncols = 4
-nrows = int(np.ceil(len(supports) / ncols))
+# # griglia: 4 righe x 5 colonne per 20 pannelli
+# ncols = 4
+# nrows = int(np.ceil(len(supports) / ncols))
 
-# scala colore condivisa (LogNorm se il range è ampio, altrimenti Normalize)
-vmin, vmax = data.total_time_sec.min(), data.total_time_sec.max()
-norm = LogNorm(vmin, vmax)  # oppure: Normalize(vmin, vmax)
-cmap = plt.get_cmap("viridis")
+# # scala colore condivisa (LogNorm se il range è ampio, altrimenti Normalize)
+# vmin, vmax = data.total_time_sec.min(), data.total_time_sec.max()
+# norm = LogNorm(vmin, vmax)  # oppure: Normalize(vmin, vmax)
+# cmap = plt.get_cmap("viridis")
 
-ANNOT = True  # True solo se i pannelli sono abbastanza grandi
+# ANNOT = True  # True solo se i pannelli sono abbastanza grandi
 
-fig, axes = plt.subplots(
-    nrows,
-    ncols,
-    figsize=(3.4 * ncols, 3.2 * nrows),
-    sharex=True,
-    sharey=True,
-    constrained_layout=True,
-)
-axes = np.atleast_2d(axes)
+# fig, axes = plt.subplots(
+#     nrows,
+#     ncols,
+#     figsize=(3.4 * ncols, 3.2 * nrows),
+#     sharex=True,
+#     sharey=True,
+#     constrained_layout=True,
+# )
+# axes = np.atleast_2d(axes)
 
-for ax, sup in zip(axes.flat, supports):
-    pivot = (
-        data[data.support == sup]
-        .pivot_table(
-            index="heap_size",
-            columns="num_groups",
-            values="total_time_sec",
-            aggfunc="mean",
-        )
-        .sort_index(ascending=False)
-    )
+# for ax, sup in zip(axes.flat, supports):
+#     pivot = (
+#         data[data.support == sup]
+#         .pivot_table(
+#             index="heap_size",
+#             columns="num_groups",
+#             values="total_time_sec",
+#             aggfunc="mean",
+#         )
+#         .sort_index(ascending=False)
+#     )
 
-    im = ax.imshow(pivot.values, cmap=cmap, norm=norm, aspect="auto")
-    ax.set_xticks(range(len(pivot.columns)))
-    ax.set_xticklabels(pivot.columns, fontsize=6, rotation=45)
-    ax.set_yticks(range(len(pivot.index)))
-    ax.set_yticklabels(pivot.index, fontsize=6)
-    ax.set_title(f"support={sup}", fontsize=9)
+#     im = ax.imshow(pivot.values, cmap=cmap, norm=norm, aspect="auto")
+#     ax.set_xticks(range(len(pivot.columns)))
+#     ax.set_xticklabels(pivot.columns, fontsize=6, rotation=45)
+#     ax.set_yticks(range(len(pivot.index)))
+#     ax.set_yticklabels(pivot.index, fontsize=6)
+#     ax.set_title(f"support={sup}", fontsize=9)
 
-    if ANNOT:
-        for i in range(pivot.shape[0]):
-            for j in range(pivot.shape[1]):
-                val = pivot.values[i, j]
-                # colore testo in base alla scala GLOBALE
-                bright = cmap(norm(val))[:3]
-                lum = 0.299 * bright[0] + 0.587 * bright[1] + 0.114 * bright[2]
-                ax.text(
-                    j,
-                    i,
-                    f"{val:.1f}",
-                    ha="center",
-                    va="center",
-                    color="black" if lum > 0.5 else "white",
-                    fontsize=5,
-                )
+#     if ANNOT:
+#         for i in range(pivot.shape[0]):
+#             for j in range(pivot.shape[1]):
+#                 val = pivot.values[i, j]
+#                 # colore testo in base alla scala GLOBALE
+#                 bright = cmap(norm(val))[:3]
+#                 lum = 0.299 * bright[0] + 0.587 * bright[1] + 0.114 * bright[2]
+#                 ax.text(
+#                     j,
+#                     i,
+#                     f"{val:.1f}",
+#                     ha="center",
+#                     va="center",
+#                     color="black" if lum > 0.5 else "white",
+#                     fontsize=5,
+#                 )
 
-# nascondi i pannelli inutilizzati
-for ax in axes.flat[len(supports) :]:
-    ax.axis("off")
+# # nascondi i pannelli inutilizzati
+# for ax in axes.flat[len(supports) :]:
+#     ax.axis("off")
 
-fig.supxlabel("Num Groups")
-fig.supylabel("Heap Size (Number of items)")
-fig.suptitle(f"Tempo totale (mining+pruning, s) — fraction={FRACTION_DEFAULT}")
-fig.colorbar(im, ax=axes, shrink=0.6, label="Total Time (s)")
+# fig.supxlabel("Num Groups")
+# fig.supylabel("Heap Size (Number of items)")
+# fig.suptitle(f"Tempo totale (mining+pruning, s) — fraction={FRACTION_DEFAULT}")
+# fig.colorbar(im, ax=axes, shrink=0.6, label="Total Time (s)")
 
-fig.savefig(f"{OUT_DIR}/7_heatmap_groups_heap.png", dpi=150)
-plt.close(fig)
+# fig.savefig(f"{OUT_DIR}/7_heatmap_groups_heap.png", dpi=150)
+# plt.close(fig)
 
 print("\nGrafici salvati in", OUT_DIR)

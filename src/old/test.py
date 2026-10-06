@@ -22,8 +22,8 @@ elif not os.access(event_log_dir, os.W_OK):
 
 NUM_CORES = 10
 MINIMUM_SUPPORT = 10
-HEAP_SIZE = 1000
-NUM_GROUPS = 500
+HEAP_SIZE = 2048
+NUM_GROUPS = 8
 
 spark = (
     SparkSession.builder.appName("test_pfp")

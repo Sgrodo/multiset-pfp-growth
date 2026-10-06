@@ -7,12 +7,12 @@ import time
 from pathlib import Path
 from time import perf_counter
 
+import psutil
 import pyspark as ps
 from pyspark.sql import SparkSession
 
 from alpha import extract_alpha_groups
 from fpgrowth import PatternWithSupport
-from dunnhumby import load_transactions_rdd
 
 NUM_CORES = 16
 
@@ -24,9 +24,9 @@ NUM_CORES = 16
 SUPPORTS = [i for i in range(10, 101, 5)]  # 20 valori
 # SUPPORTS = [10]  # 20 valori
 # HEAP_SIZES = [200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000]  # 10 valori
-HEAP_SIZES = [2**i for i in range(4, 11)]  # 10 valori
-NUM_GROUPS_LIST = [2**i for i in range(0, 9)]  # 9 valori
-FRACTIONS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0]  # 8 valori
+HEAP_SIZES = [1024]  # 10 valori
+NUM_GROUPS_LIST = [8]  # 5 valori
+FRACTIONS = [1.0]  # 8 valori
 # FRACTIONS = [1.0]  # 8 valori
 
 
@@ -146,43 +146,25 @@ if __name__ == "__main__":
     )
 
     sc = spark.sparkContext
+    sdf = spark.read.csv(
+        os.path.join(DATASETS_DIR, "dunnhumby/transaction_data.csv"),
+        header=True,
+        inferSchema=True,
+    )
+
     sc.addPyFile(os.path.join(SRC_DIR, "alpha.py"))
     sc.addPyFile(os.path.join(SRC_DIR, "pfp.py"))
     sc.addPyFile(os.path.join(SRC_DIR, "fpgrowth.py"))
 
-    transactions = load_transactions_rdd(spark)
-
-    # il supporto deve contare le transazioni che contengono un token, qui abbiamo dupicati
-    # transactions = (
-    #     sdf.select("BASKET_ID", "PRODUCT_ID", "QUANTITY")
-    #     .rdd.map(
-    #         lambda row: (row["BASKET_ID"], (row["PRODUCT_ID"], int(row["QUANTITY"])))
-    #     )
-    #     .groupByKey()
-    #     .mapValues(list)
-    #     .persist(ps.StorageLevel.MEMORY_AND_DISK)
-    # )
-
-    # Versione corretta:
-    # prima accadeva T1 -> (A,2), (A,2), (D,3) e diventava T1 -> B, B, C e contavamo B 2 volte (sbagliato)
-    # ora T1 -> (A,2), (A,2), (D,3) diventa T1 -> (A,4),(D,3) e diventa T1 -> E,C
-
-    # aggregated = (
-    #     sdf.filter(F.col("QUANTITY") > 0)
-    #     .groupBy("BASKET_ID", "PRODUCT_ID")
-
-    #     .agg(F.sum("QUANTITY").alias("QUANTITY"))
-    # )
-
-    # transactions = (
-    #     aggregated.select("BASKET_ID", "PRODUCT_ID", "QUANTITY")
-    #     .rdd.map(
-    #         lambda row: (row["BASKET_ID"], (row["PRODUCT_ID"], int(row["QUANTITY"])))
-    #     )
-    #     .groupByKey()
-    #     .mapValues(list)
-    #     .persist(ps.StorageLevel.MEMORY_AND_DISK)
-    # )
+    transactions = (
+        sdf.select("BASKET_ID", "PRODUCT_ID", "QUANTITY")
+        .rdd.map(
+            lambda row: (row["BASKET_ID"], (row["PRODUCT_ID"], int(row["QUANTITY"])))
+        )
+        .groupByKey()
+        .mapValues(list)
+        .persist(ps.StorageLevel.MEMORY_AND_DISK)
+    )
 
     total = transactions.count()
 
@@ -191,10 +173,12 @@ if __name__ == "__main__":
     def warm_up():
         for it in range(10):
             data_len = random.randint(1000, total)
-            sample = transactions.sample(False, data_len / total, seed=42).persist(
+            sample = transactions.sample(False, data_len).persist(
                 ps.StorageLevel.MEMORY_AND_DISK
             )
-            patterns = apply_pfp(sample, support=100, max_heap_size=1024, num_groups=8)
+            patterns = apply_pfp(
+                sample, support=100, max_heap_size=1000, num_groups=500
+            )
             patterns.count()
             extract_alpha_groups(patterns).count()
             sample.unpersist()

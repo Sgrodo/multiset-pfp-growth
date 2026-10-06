@@ -41,7 +41,7 @@ def apply_pfp(
         {v: k for k, v in conversion_map.value.items()}
     )
 
-    flattened_patterns = patterns.flatMap(lambda x: x[1]).distinct().persist()
+    flattened_patterns = patterns.flatMap(lambda x: x[1]).distinct()
 
     return flattened_patterns.map(
         lambda pws: convert_to_quantified_pattern(pws, inverse_conversion_map)
