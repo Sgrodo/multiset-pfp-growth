@@ -227,8 +227,7 @@ def main() -> None:
             description_map = {}
 
         transactions = (
-            rows.filter(lambda row: int(row["Quantity"]) > 0)
-            .map(
+            rows.map(
                 lambda row: (
                     (row["InvoiceNo"], row["StockCode"]),
                     int(row["Quantity"]),
@@ -455,7 +454,6 @@ def main() -> None:
             f"- Heap size: {args.heap_size:,}",
             f"- PFP groups: {args.num_groups:,}",
             f"- Local Spark cores: {args.num_cores}",
-            "- Returns/negative quantities and zero quantities: excluded",
             f"- Product descriptions: {'available' if has_descriptions else 'not available'}",
             "",
             "## Dataset summary",

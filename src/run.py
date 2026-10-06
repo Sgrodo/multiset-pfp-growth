@@ -150,40 +150,13 @@ if __name__ == "__main__":
     sc.addPyFile(os.path.join(SRC_DIR, "pfp.py"))
     sc.addPyFile(os.path.join(SRC_DIR, "fpgrowth.py"))
 
-    transactions = load_transactions_rdd(spark)
 
-    # il supporto deve contare le transazioni che contengono un token, qui abbiamo dupicati
-    # transactions = (
-    #     sdf.select("BASKET_ID", "PRODUCT_ID", "QUANTITY")
-    #     .rdd.map(
-    #         lambda row: (row["BASKET_ID"], (row["PRODUCT_ID"], int(row["QUANTITY"])))
-    #     )
-    #     .groupByKey()
-    #     .mapValues(list)
-    #     .persist(ps.StorageLevel.MEMORY_AND_DISK)
-    # )
-
-    # Versione corretta:
+     # Versione corretta:
     # prima accadeva T1 -> (A,2), (A,2), (D,3) e diventava T1 -> B, B, C e contavamo B 2 volte (sbagliato)
     # ora T1 -> (A,2), (A,2), (D,3) diventa T1 -> (A,4),(D,3) e diventa T1 -> E,C
 
-    # aggregated = (
-    #     sdf.filter(F.col("QUANTITY") > 0)
-    #     .groupBy("BASKET_ID", "PRODUCT_ID")
-
-    #     .agg(F.sum("QUANTITY").alias("QUANTITY"))
-    # )
-
-    # transactions = (
-    #     aggregated.select("BASKET_ID", "PRODUCT_ID", "QUANTITY")
-    #     .rdd.map(
-    #         lambda row: (row["BASKET_ID"], (row["PRODUCT_ID"], int(row["QUANTITY"])))
-    #     )
-    #     .groupByKey()
-    #     .mapValues(list)
-    #     .persist(ps.StorageLevel.MEMORY_AND_DISK)
-    # )
-
+    transactions = load_transactions_rdd(spark)
+    
     total = transactions.count()
 
     from algorithm import apply_pfp
