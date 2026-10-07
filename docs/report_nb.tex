@@ -92,25 +92,25 @@ behaviour.
 
 To rigorously analyse co-occurrences in retail data while accounting for
 purchased quantities, we establish a formal mathematical framework [1, 2]. Let
-$I = \{i_1, i_2, \dots, i_m\}$ be the universe of distinct items [3]. A
+$I = \{i_1, i_2, \dots, i_m\}$ be the universe of distinct items . A
 \textbf{quantitative itemset} $X$ is defined as a set of ordered pairs
 representing items and their specific purchased quantities:
-$X = \{ (i_j, q_j) \mid i_j \in I,\, q_j \in \mathbb{Z}^+ \}$ [3].
+$X = \{ (i_j, q_j) \mid i_j \in I,\, q_j \in \mathbb{Z}^+ \}$ .
 
 For any frequent quantitative pattern $P \in \mathcal{P}$ characterised by
 the quantity set $\{q_1, q_2, \dots, q_k\}$, we define the \textbf{Scaling
 Factor} $\alpha$ as the greatest common divisor of those quantities:
-$\alpha = \gcd(q_1, q_2, \dots, q_k)$ [4]. This extraction of a common scalar
+$\alpha = \gcd(q_1, q_2, \dots, q_k)$ . This extraction of a common scalar
 is theoretically grounded in the \textbf{Prefix Path Property}, which states
 that for any node $a_i$ in a path $P$ within an FP-tree, the frequency count
 of every node in its prefix subpath must carry the same count as node $a_i$
-[5]. In a quantitative context, this property suggests that items appearing in
+. In a quantitative context, this property suggests that items appearing in
 a single path often co-occur in fixed ratios, justifying the use of a scaling
 factor to represent the magnitude of the transaction [4, 5].
 
 Consequently, each pattern $P$ can be uniquely decomposed into its
 \textbf{Canonical Shape} $S$, which represents the irreducible proportional
-ratio of the items [4]. The shape $S$ is derived by normalising each quantity
+ratio of the items . The shape $S$ is derived by normalising each quantity
 in the pattern by the scaling factor:
 \begin{equation}
     S = \left\{ \left(i_j, \frac{q_j}{\alpha}\right) \mid (i_j, q_j) \in P
@@ -119,7 +119,7 @@ in the pattern by the scaling factor:
 By sorting these items in a fixed lexicographical order, we ensure a unique
 representation for each structural relationship [4, 6, 7]. Under this
 formulation, any extracted frequent pattern is represented as a scalar multiple
-of its base structure: $P = \alpha \cdot S$ [4].
+of its base structure: $P = \alpha \cdot S$ .
 
 % ============================================================
 \section{Distributed Architecture}
@@ -128,7 +128,7 @@ of its base structure: $P = \alpha \cdot S$ [4].
 The massive scale of modern retail transactions necessitates a distributed
 computing approach to avoid memory overflows and prohibitive computational
 costs [3, 4]. Our architecture leverages the \textbf{Parallel FP-Growth (PFP)}
-framework [5], adapted to process quantitative itemsets through a multi-stage
+framework , adapted to process quantitative itemsets through a multi-stage
 MapReduce-based pipeline. This architecture ensures virtually linear speedup by
 eliminating inter-node communication during the mining process [3, 6].
 
@@ -140,21 +140,21 @@ prefix-tree logic, we implement a \textbf{Bijective Token Indexing} phase
 (adapted from PFP's Parallel Counting step [7, 8]).
 \begin{itemize}
     \item \textbf{Sharding:} The raw transactional database $DB$ is
-          partitioned into $P$ independent shards across the cluster [1].
+          partitioned into $P$ independent shards across the cluster .
     \item \textbf{Parallel Counting:} Each mapper discovers the local
           vocabulary of $(item, quantity)$ pairs. The MapReduce infrastructure
           aggregates these counts to generate a global \textbf{F-List} [7, 9].
     \item \textbf{Tokenisation:} Every unique pair is mapped to a synthetic
           integer identifier $ID \in \mathbb{Z}^+$. This standardises the input
           for the PFP engine, ensuring that a purchase of ``2 colas'' is treated
-          as a distinct frequent entity from ``1 cola'' [10].
+          as a distinct frequent entity from ``1 cola'' .
 \end{itemize}
 
 \subsection{Workload Partitioning and the Group List}
 
 A critical challenge in distributed FP-Growth is balancing the computational
 load. PFP addresses this by dividing the $|I|$ items from the F-List into $Q$
-independent groups, creating a \textbf{Group List (G-list)} [7].
+independent groups, creating a \textbf{Group List (G-list)} .
 Each group is assigned a unique \textit{group-id (gid)}. By setting $Q$
 significantly higher than the number of physical machines ($P$), we ensure
 that if one node finishes its mining task early, it can immediately process
@@ -164,7 +164,7 @@ pipeline [11, 12].
 \subsection{Independent Parallel Mining}
 
 The core of the architecture lies in the \textbf{Parallel FP-Growth
-Step} [13]. This stage transforms the database into group-dependent
+Step} . This stage transforms the database into group-dependent
 transactions:
 \begin{enumerate}
     \item \textbf{Mapper Phase:} Each mapper reads the G-list and outputs
@@ -520,145 +520,173 @@ resulting DAGs are shown in Figure~\ref{fig:dags}.
     \label{fig:dags}
 \end{figure*}
 \newpage
+
 % ============================================================
 \section{Experimental Evaluation}
-\begin{figure*}[t]
+% ============================================================
+
+\begin{figure*}[h]
     \centering
     \includegraphics[width=\textwidth]{7_heatmap_groups_heap.png}
-    \caption{Total execution time (mining + pruning) as a function of
-        heap size $K$ (y-axis) and number of groups $Q$ (x-axis), at
-        four support levels on the full dataset ($f{=}1.0$). Heap size
-        has no measurable effect on execution time, consistent with the
-        absence of network overhead in \texttt{local[*]} mode. The
-        number of groups shows modest sensitivity at low support, where
-        task scheduling overhead becomes relevant.}
+    \caption{Total execution time (mining + pruning) as a function of heap
+        size $K$ (y-axis) and number of groups $Q$ (x-axis), at four support
+        levels on the full dataset ($f{=}1.0$). Heap size has no measurable
+        effect on execution time, consistent with the absence of network
+        overhead in \texttt{local[*]} mode. The number of groups shows modest
+        sensitivity at low support, where task scheduling overhead becomes
+        relevant.}
     \label{fig:heatmap}
 \end{figure*}
+
 This section evaluates the computational performance and output
 characteristics of the proposed pipeline on the Dunnhumby \textit{The
-Complete Journey} dataset. All experiments were executed locally using
-Apache Spark in \texttt{local[*]} mode, leveraging all available cores.
+Complete Journey} dataset. All experiments were executed locally using Apache
+Spark in \texttt{local[*]} mode, leveraging all available cores.
 
 \subsection{Dataset and Experimental Setup}
 
-The Dunnhumby dataset contains $2{,}595{,}732$ purchase records from
-2,500 households over 52 weeks, covering approximately $92{,}000$ unique
-products. After grouping records by basket identifier, the dataset yields
-approximately $280{,}000$ unique transactions. The quantity distribution
-is highly skewed: while the median purchase quantity is 1 unit, the mean
-is approximately 100 and the maximum reaches $89{,}638$ units, reflecting
-the extreme long-tail characteristic of real-world retail data. This skew
-directly stresses the GCD-based canonical shape extraction, as outlier
-quantities can suppress the discovery of proportional relationships —
-a limitation discussed in Section~\ref{sec:limitations}. Negative
-quantities representing product returns are handled transparently by the
-absolute-value normalisation applied during tokenisation.
+The Dunnhumby dataset contains $2{,}595{,}732$ purchase records from 2,500
+households over 52 weeks, covering approximately $92{,}000$ unique products.
+After grouping records by basket identifier, the dataset yields approximately
+$280{,}000$ unique transactions. The quantity distribution is highly skewed:
+while the median purchase quantity is 1 unit, the mean is approximately 100
+and the maximum reaches $89{,}638$ units, reflecting the extreme long-tail
+characteristic of real-world retail data. This skew directly stresses the
+GCD-based canonical shape extraction, as outlier quantities can suppress the
+discovery of proportional relationships — a limitation discussed in
+Section~\ref{sec:limitations}. Negative quantities representing product
+returns are handled transparently by the absolute-value normalisation applied
+during tokenisation.
 
-Experiments were conducted as a partial grid search over the following
-ranges: minimum support $\xi \in \{10, 15, \dots, 100\}$, heap size
-$K \in \{16, 32, \dots, 1024\}$, number of groups $Q \in \{1, 2, 4,
-\dots, 256\}$, and dataset fraction $f \in \{0.1, 0.2, 0.3, 0.4, 0.5,
-0.6, 0.8, 1.0\}$. Each configuration was preceded by a warmup run on a
-$5\%$ subsample to mitigate JVM JIT compilation bias, ensuring that
-measured times reflect steady-state execution rather than cold-start
-overhead.
+Experiments were conducted as a partial grid search over the following ranges:
+minimum support $\xi \in \{10, 15, \dots, 100\}$, heap size $K \in \{16, 32,
+64, 128, 256, 512, 1024\}$, number of groups $Q \in \{1, 2, 4, 8, 16, 32,
+64, 128, 256\}$, and dataset fraction $f \in \{0.1, 0.2, 0.3, 0.4, 0.5,
+0.6, 0.8, 1.0\}$. Each configuration was preceded by a warmup run on a $5\%$
+subsample to mitigate JVM JIT compilation bias, ensuring that measured times
+reflect steady-state execution rather than cold-start overhead.
 
 \subsection{Parameter Sensitivity: Heap Size and Number of Groups}
 
-Figure~\ref{fig:heatmap} reports total execution time (mining and
-pruning) as a function of heap size $K$ and number of groups $Q$, at
-four representative support levels on the full dataset. Two findings
-emerge clearly.
+Figure~\ref{fig:heatmap} reports total execution time (mining and pruning) as
+a function of heap size $K$ and number of groups $Q$, at four representative
+support levels on the full dataset. Two findings emerge clearly.
 
-First, heap size has a negligible effect on total execution time across
-all support levels. This is counter-intuitive: in a genuine distributed
+First, heap size has a negligible effect on total execution time across all
+support levels. This is counter-intuitive: in a genuine distributed
 deployment, a larger $K$ increases shuffle volume during the
 \texttt{combineByKey} aggregation, as each mapper emits more
 $(a_i, (S, P))$ pairs and the per-item heap merges grow more expensive.
-However, in the \texttt{local[*]} execution environment, all shuffle
-reads and writes occur within the same JVM process without network
-overhead or serialisation across physical nodes. The heap merge cost is
-therefore absorbed into local memory operations and becomes negligible
-relative to the mining phase. This is an intrinsic limitation of
-single-machine benchmarking: the sensitivity of $K$ to execution time
-would be expected to materialise on a real cluster where shuffle data
-crosses network boundaries.
+However, in the \texttt{local[*]} execution environment, all shuffle reads
+and writes occur within the same JVM process without network overhead or
+serialisation across physical nodes. The heap merge cost is therefore absorbed
+into local memory operations and becomes negligible relative to the mining
+phase. This is an intrinsic limitation of single-machine benchmarking: the
+sensitivity of $K$ to execution time would be expected to materialise on a
+real cluster where shuffle data crosses network boundaries.
 
 Second, the number of groups $Q$ shows a visible but modest effect,
-particularly at low support ($\xi{=}10$) where the pattern space is
-largest. Execution time increases with $Q$ in this regime, which appears
-paradoxical given that more groups should improve load balancing. The
-explanation lies in the single-machine context: with \texttt{local[*]},
-all groups are processed sequentially by the same thread pool, so a
-higher $Q$ primarily increases task scheduling overhead and the number
-of FP-tree constructions rather than enabling true parallel load
-distribution. At higher support values ($\xi \geq 40$), the mining
-phase becomes fast enough that scheduling overhead dominates and
-variation across $Q$ collapses entirely. On a real cluster, the optimal
+particularly at low support ($\xi{=}10$) where the pattern space is largest.
+Execution time increases with $Q$ in this regime, which appears paradoxical
+given that more groups should improve load balancing. The explanation lies in
+the single-machine context: with \texttt{local[*]}, all groups are processed
+sequentially by the same thread pool, so a higher $Q$ primarily increases
+task scheduling overhead and the number of FP-tree constructions rather than
+enabling true parallel load distribution. At higher support values ($\xi \geq
+40$), the mining phase becomes fast enough that scheduling overhead dominates
+and variation across $Q$ collapses entirely. On a real cluster, the optimal
 $Q$ would balance load across physical nodes and the relationship with
 execution time would differ substantially.
 
 \subsection{Pruning Effectiveness}
 
-Figure~\ref{fig:pruning_support} quantifies the effectiveness of
-Transitive Modulo Pruning as minimum support varies from 10 to 100.
-Pattern count drops sharply with increasing support — from approximately
-$180{,}000$ at $\xi{=}10$ to fewer than $5{,}000$ at $\xi{=}100$ —
-confirming the expected inverse relationship. The fraction of patterns
-removed by transitive reduction peaks at approximately $1.5\%$ at the
-lowest support and decays to around $0.2\%$ at the highest.
+Figure~\ref{fig:pruning_support} quantifies the effectiveness of Transitive
+Modulo Pruning as minimum support varies from 10 to 100. Pattern count drops
+sharply with increasing support — from approximately $180{,}000$ at
+$\xi{=}10$ to fewer than $5{,}000$ at $\xi{=}100$ — confirming the expected
+inverse relationship. The fraction of patterns removed by transitive reduction
+peaks at approximately $1.5\%$ at the lowest support and decays to around
+$0.2\%$ at the highest.
 
-This low pruning rate warrants a critical interpretation. It indicates
-that the Dunnhumby dataset contains few multi-level scaling trajectories
-— few canonical shapes $S$ for which three or more distinct scaling
-factors satisfy the full divisibility chain $\alpha_i \mid \alpha_j \mid
-\alpha_k$. This is consistent with the dataset's quantity distribution:
-with the overwhelming majority of purchases involving a single unit, the
-GCD decomposition rarely produces the layered $\alpha$ structures that
-transitive reduction is designed to simplify. The step is therefore most
-valuable in datasets with richer purchasing quantity distributions, such
-as wholesale or manufacturing procurement data.
+This low pruning rate warrants a critical interpretation. It indicates that
+the Dunnhumby dataset contains few multi-level scaling trajectories — few
+canonical shapes $S$ for which three or more distinct scaling factors satisfy
+the full divisibility chain $\alpha_i \mid \alpha_j \mid \alpha_k$. This is
+consistent with the dataset's quantity distribution: with the overwhelming
+majority of purchases involving a single unit, the GCD decomposition rarely
+produces the layered $\alpha$ structures that transitive reduction is designed
+to simplify. The step is therefore most valuable in datasets with richer
+purchasing quantity distributions, such as wholesale or manufacturing
+procurement data.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\columnwidth]{3_pruning_vs_support.png}
     \caption{Pattern count before (blue) and after (orange) Transitive
         Modulo Pruning as a function of minimum support, with the removal
-        percentage on the right axis (dashed). The pruning rate remains
-        below $1.5\%$ across all configurations.}
+        percentage on the right axis (dashed). The pruning rate remains below
+        $1.5\%$ across all configurations.}
     \label{fig:pruning_support}
+\end{figure}
+
+\subsection{Overhead of the Proportional Graph Construction}
+
+Figure~\ref{fig:pruning_overhead} reports the fraction of total execution
+time consumed by the alpha extraction and Transitive Modulo Pruning phase as
+minimum support varies from 10 to 100. The overhead is stable in the range
+$4.4\%$--$5.9\%$ across all tested support values, with a slight upward trend
+at higher support. This counter-intuitive increase occurs because higher
+support reduces absolute mining time while the fixed operational costs of the
+Spark job — task scheduling, broadcast serialisation, and \texttt{groupByKey}
+overhead — become proportionally larger.
+
+Critically, the overhead never exceeds $6\%$ of total execution time,
+validating the architectural decision to confine GCD decomposition and
+transitive reduction to the aggregation phase rather than integrating them
+into the recursive mining process. This confirms that the Proportional
+Relationship Graph construction can be treated as a lightweight post-processing
+step that does not compromise the throughput of the core PFP pipeline.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\columnwidth]{5_pruning_overhead.png}
+    \caption{Fraction of total execution time spent in the alpha extraction
+        and pruning phase as a function of minimum support. The overhead
+        remains below $6\%$ across all configurations, confirming that
+        the Proportional Relationship Graph construction is negligible
+        relative to the mining phase.}
+    \label{fig:pruning_overhead}
 \end{figure}
 
 \subsection{Scalability of the Pruning Phase}
 
-Figure~\ref{fig:pruning_scalability} shows the absolute execution time
-of the pruning phase as a function of input pattern count, on a log-log
-scale. Below approximately $10{,}000$ patterns, pruning time remains
-sub-second with moderate variance attributable to Spark task scheduling
-jitter. Beyond this threshold, execution time increases more steeply
-and variance grows substantially, reaching 2--3 seconds at
-$\sim\!150{,}000$ patterns.
+Figure~\ref{fig:pruning_scalability} shows the absolute execution time of the
+pruning phase as a function of input pattern count, on a log-log scale. Below
+approximately $10{,}000$ patterns, pruning time remains sub-second with
+moderate variance attributable to Spark task scheduling jitter. Beyond this
+threshold, execution time increases more steeply and variance grows
+substantially, reaching 2--3 seconds at $\sim\!150{,}000$ patterns.
 
-The observed growth is consistent with the $\mathcal{O}(|\alpha|^2)$
-pairwise divisibility check performed within each canonical shape group
-by \texttt{reduce\_alpha\_edges}: as the number of distinct scaling
-factors per group increases, the local quadratic cost dominates.
-However, because \texttt{groupByKey} ensures each group is processed
-independently on a single worker, this cost does not propagate globally
-— the pruning phase remains parallelisable across shape groups and its
-wall-clock time is bounded by the largest individual group rather than
-the total pattern count.
+The observed growth is consistent with the $\mathcal{O}(|\alpha|^2)$ pairwise
+divisibility check performed within each canonical shape group by
+\texttt{reduce\_alpha\_edges}: as the number of distinct scaling factors per
+group increases, the local quadratic cost dominates. However, because
+\texttt{groupByKey} ensures each group is processed independently on a single
+worker, this cost does not propagate globally — the pruning phase remains
+parallelisable across shape groups and its wall-clock time is bounded by the
+largest individual group rather than the total pattern count.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\columnwidth]{6_scalabilita_pruning.png}
-    \caption{Pruning phase execution time as a function of input pattern
-        count (log-log scale). Time remains sub-second below
-        $\sim\!10{,}000$ patterns and grows toward 2--3 seconds at
-        $\sim\!150{,}000$, consistent with the local quadratic cost of
-        pairwise divisibility checks within each canonical shape group.}
+    \caption{Pruning phase execution time as a function of input pattern count
+        (log-log scale). Time remains sub-second below $\sim\!10{,}000$
+        patterns and grows toward 2--3 seconds at $\sim\!150{,}000$,
+        consistent with the local quadratic cost of pairwise divisibility
+        checks within each canonical shape group.}
     \label{fig:pruning_scalability}
 \end{figure}
+
 
 % ============================================================
 \section{Limitations and Conclusion}
