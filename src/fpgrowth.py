@@ -15,12 +15,20 @@ class FPNode:
     children: dict[Any, "FPNode"] = field(default_factory=dict)
 
 
+class SortedDict(dict):
+    def __iter__(self):
+        items = self.items()
+        sorted_items = sorted(items, key=lambda x: x[1])
+        sorted_keys = [key for key, _ in sorted_items]
+        return iter(sorted_keys)
+
+
 class FPTree:
     def __init__(self):
         self.__root = FPNode(None)
         # root should have count 0 (not 1 which is FPNode default)
         self.__root.count = 0
-        self.__header_table: dict[Any, list[FPNode]] = {}
+        self.__header_table: dict[Any, list[FPNode]] = SortedDict()
         self.__node_count = 0
 
     @property
