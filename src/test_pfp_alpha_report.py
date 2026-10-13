@@ -77,8 +77,7 @@ def pattern_text(
     items = list(pattern)
     shown = items if max_items is None else items[:max_items]
     text = ", ".join(
-        f"{product_label(item, descriptions)} x{quantity}"
-        for item, quantity in shown
+        f"{product_label(item, descriptions)} x{quantity}" for item, quantity in shown
     )
     if max_items is not None and len(items) > max_items:
         text += f", ... (+{len(items) - max_items})"
@@ -195,10 +194,9 @@ def main() -> None:
         has_descriptions = "Description" in sdf.columns
         if has_descriptions:
             selected_columns.append("Description")
-        rows = (
-            sdf.select(*selected_columns)
-            .rdd.filter(
-                lambda row: row["InvoiceNo"] is not None
+        rows = sdf.select(*selected_columns).rdd.filter(
+            lambda row: (
+                row["InvoiceNo"] is not None
                 and row["StockCode"] is not None
                 and row["Quantity"] is not None
             )
@@ -208,8 +206,10 @@ def main() -> None:
         if has_descriptions:
             description_map = (
                 rows.filter(
-                    lambda row: row["Description"] is not None
-                    and str(row["Description"]).strip() != ""
+                    lambda row: (
+                        row["Description"] is not None
+                        and str(row["Description"]).strip() != ""
+                    )
                 )
                 .map(
                     lambda row: (
@@ -230,7 +230,7 @@ def main() -> None:
             rows.map(
                 lambda row: (
                     (row["InvoiceNo"], row["StockCode"]),
-                    int(row["Quantity"]),
+                    abs(int(row["Quantity"])),
                 )
             )
             .reduceByKey(lambda q1, q2: q1 + q2)
@@ -332,7 +332,10 @@ def main() -> None:
             .collect()
         )
         support_distribution = dict(
-            sorted(support_distribution.items(), key=lambda item: bucket_lower_bound(item[0]))
+            sorted(
+                support_distribution.items(),
+                key=lambda item: bucket_lower_bound(item[0]),
+            )
         )
         alpha_count_distribution = dict(
             proportional_groups.map(lambda group: (group["alpha_count"], 1))
